@@ -1,10 +1,24 @@
+import typing as t
+
 import numpy as np
 
 """
 Copyright MartinK-99 2021
 """
 
+Color: t.TypeAlias = str
+Face: t.TypeAlias = t.Sequence[t.Sequence[Color]]
+
+
 class Cube:
+    r: Face
+    u: Face
+    f: Face
+    l: Face
+    d: Face
+    b: Face
+
+
     def __init__(self):
         # 0 Weiß
         # 1 Gelb
@@ -27,7 +41,7 @@ class Cube:
         self.b = np.array([["b","b","b"],["b","b","b"],["b","b","b"]])
 
     # Matrix Rotation
-    def rotateMatrix(self,A,r):
+    def rotateMatrix(self, A: Face, r: str):
         # Clockwise Drehung der Matrix
         if r == "cw":
             A[0,0],A[0,1],A[0,2],A[1,2],A[2,2],A[2,1],A[2,0],A[1,0]= \
@@ -46,7 +60,7 @@ class Cube:
         return A
 
     # Cube Rotation
-    def rotation(self, r):
+    def rotation(self, r: str) -> None:
         if r == "x":
             self.b, self.d, self.f, self.u = self.u, self.b, self.d, self.f
 
@@ -117,7 +131,7 @@ class Cube:
             print("dafuq you want from me")
 
     # Moves ausschließlich mit Rotationen und R Moves definiert
-    def move(self,mv):
+    def move(self, mv: str) -> None:
         # Hardcoded R Rotationen
         if mv == "R":
             self.r = self.rotateMatrix(self.r, "cw")
@@ -358,7 +372,7 @@ class Cube:
             print("dafuq you want from me")
 
     # Algorithmus als String
-    def algorithm(self,alg):
+    def algorithm(self, alg: str) -> None:
         algList = alg.split()
         for i in algList:
             if i in ["x","x'","x2","y","y'","y2","z","z'","z2"]:
@@ -367,7 +381,7 @@ class Cube:
                 self.move(i)
 
     # Gibt aus ob Cube gelöst ist oder nicht
-    def isSolved(self):
+    def isSolved(self) -> bool:
         return\
             np.all(self.u == self.u[0,0]) and \
             np.all(self.d == self.d[0,0]) and \
