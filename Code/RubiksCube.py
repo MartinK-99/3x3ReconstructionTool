@@ -278,6 +278,7 @@ class Cube:
         elif mv == "Rw2" or mv == "r2" or mv == "Rw2'" or mv == "r2'":
             self.rotation("z2")
             self.move("R2")
+            self.rotation("z2") # the mistake :O
             self.rotation("x2")
 
         elif mv == "Lw" or mv == "l":
