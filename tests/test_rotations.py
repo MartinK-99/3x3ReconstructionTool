@@ -51,9 +51,3 @@ def test_string(cube: Cube):
     """
         ).strip()
     )
-
-
-def test_ndarray_conversion():
-    import numpy as np
-
-    assert np.all(Face.same_color("w").as_ndarray == np.array([["w"] * 3] * 3))

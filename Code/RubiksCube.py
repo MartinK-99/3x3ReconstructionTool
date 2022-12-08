@@ -3,8 +3,6 @@ import typing as t
 from collections import deque
 from itertools import chain
 
-import numpy as np
-
 """
 Copyright MartinK-99 2021
 """
@@ -64,10 +62,6 @@ class Face:
     def as_list(self) -> t.List[t.List[Color]]:
         return [[self[row, col] for row in range(3)] for col in range(3)]
 
-    @property
-    def as_ndarray(self) -> np.ndarray:
-        return np.array(self.as_list)
-
 
 def rowconcat(matrices: t.Sequence[t.List[t.List[Color]]]) -> t.List[t.List[Color]]:
     return [list(chain(*rows)) for rows in zip(*matrices)]
@@ -101,19 +95,6 @@ class Cube:
 
 
     def __init__(self):
-        # 0 Weiß
-        # 1 Gelb
-        # 2 Rot
-        # 3 Orange
-        # 4 Grün
-        # 5 Blau
-        # self.u = np.zeros((3,3))
-        # self.d = 1*np.ones((3,3))
-        # self.r = 2*np.ones((3,3))
-        # self.l = 3*np.ones((3,3))
-        # self.f = 4*np.ones((3,3))
-        # self.b = 5*np.ones((3,3))
-
         self.u = Face.same_color("w")
         self.d = Face.same_color("y")
         self.r = Face.same_color("r")
