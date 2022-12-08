@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 import pytest
 
 from Code.RubiksCube import Cube
@@ -30,3 +32,22 @@ def test_algo_order(cube: Cube, algo: str, expected_order: int):
             assert not cube.isSolved()
         cube.algorithm(algo)
     assert cube.isSolved()
+
+
+def test_string(cube: Cube):
+    assert (
+        str(cube)
+        == dedent(
+            """\
+        [['w' 'w' 'w']
+         ['w' 'w' 'w']
+         ['w' 'w' 'w']]
+        [['g' 'g' 'g' 'r' 'r' 'r' 'b' 'b' 'b' 'o' 'o' 'o']
+         ['g' 'g' 'g' 'r' 'r' 'r' 'b' 'b' 'b' 'o' 'o' 'o']
+         ['g' 'g' 'g' 'r' 'r' 'r' 'b' 'b' 'b' 'o' 'o' 'o']]
+        [['y' 'y' 'y']
+         ['y' 'y' 'y']
+         ['y' 'y' 'y']]
+    """
+        ).strip()
+    )
