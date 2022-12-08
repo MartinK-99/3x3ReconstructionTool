@@ -1,4 +1,6 @@
+import dataclasses as d
 import typing as t
+from collections import deque
 
 import numpy as np
 
@@ -9,6 +11,62 @@ Copyright MartinK-99 2021
 Color: t.TypeAlias = str
 Face: t.TypeAlias = t.Sequence[t.Sequence[Color]]
 
+OUTER_COORDS = [
+    (0, 0),
+    (0, 1),
+    (0, 2),
+    (1, 2),
+    (2, 2),
+    (2, 1),
+    (2, 0),
+    (1, 0),
+]
+OUTER_COORDS_INV = {coord: i for i, coord in enumerate(OUTER_COORDS)}
+
+
+@d.dataclass
+class Face:
+    """3x3 face, implemented with an efficient rotation method"""
+
+    mid: Color
+    outer: deque
+
+    @classmethod
+    def same_color(cls, c: Color):
+        return cls(mid=c, outer=deque((c, c, c, c, c, c, c, c)))
+
+    def __getitem__(self, item: t.Tuple[int, int]) -> Color:
+        if item == (1, 1):
+            return self.mid
+        return self.outer[OUTER_COORDS_INV[item]]
+
+    def __setitem__(self, key: t.Tuple[int, int], value: Color) -> None:
+        if key == (1, 1):
+            self.mid = value
+        else:
+            self.outer[OUTER_COORDS_INV[key]] = value
+
+    @property
+    def is_same_color(self) -> bool:
+        return {self.mid} == set(self.outer)
+
+    def rotate(self, how: str = "cw") -> None:
+        if how == "cw":
+            self.outer.rotate(-2)
+            return
+        if how == "2":
+            self.outer.rotate(4)
+        if how == "ccw":
+            self.outer.rotate(2)
+
+    @property
+    def as_list(self) -> t.List[t.List[Color]]:
+        return [[self[row, col] for row in range(3)] for col in range(3)]
+
+    @property
+    def as_ndarray(self) -> np.ndarray:
+        return np.array(self.as_list)
+
 
 class Cube:
     r: Face
@@ -17,6 +75,8 @@ class Cube:
     l: Face
     d: Face
     b: Face
+    # no measurable benefit
+    # __slots__ = ("r", "u", "f", "l", "d", "b")
 
 
     def __init__(self):
@@ -33,30 +93,16 @@ class Cube:
         # self.f = 4*np.ones((3,3))
         # self.b = 5*np.ones((3,3))
 
-        self.u = np.array([["w","w","w"],["w","w","w"],["w","w","w"]])
-        self.d = np.array([["y","y","y"],["y","y","y"],["y","y","y"]])
-        self.r = np.array([["r","r","r"],["r","r","r"],["r","r","r"]])
-        self.l = np.array([["o","o","o"],["o","o","o"],["o","o","o"]])
-        self.f = np.array([["g","g","g"],["g","g","g"],["g","g","g"]])
-        self.b = np.array([["b","b","b"],["b","b","b"],["b","b","b"]])
+        self.u = Face.same_color("w")
+        self.d = Face.same_color("y")
+        self.r = Face.same_color("r")
+        self.l = Face.same_color("o")
+        self.f = Face.same_color("g")
+        self.b = Face.same_color("b")
 
     # Matrix Rotation
     def rotateMatrix(self, A: Face, r: str):
-        # Clockwise Drehung der Matrix
-        if r == "cw":
-            A[0,0],A[0,1],A[0,2],A[1,2],A[2,2],A[2,1],A[2,0],A[1,0]= \
-            A[2,0],A[1,0],A[0,0],A[0,1],A[0,2],A[1,2],A[2,2],A[2,1]
-        # Counter-Clockwise Drehung der Matrix
-        elif r == "ccw":
-            A[2,0],A[1,0],A[0,0],A[0,1],A[0,2],A[1,2],A[2,2],A[2,1]= \
-            A[0,0],A[0,1],A[0,2],A[1,2],A[2,2],A[2,1],A[2,0],A[1,0]
-        # 180° Drehung der Matrix
-        elif r == "2":
-            A[0,0],A[0,1],A[0,2],A[1,2],A[2,2],A[2,1],A[2,0],A[1,0]= \
-            A[2,2],A[2,1],A[2,0],A[1,0],A[0,0],A[0,1],A[0,2],A[1,2]
-        else:
-            print("dafuq you want from me")
-
+        A.rotate(r)
         return A
 
     # Cube Rotation
@@ -64,69 +110,69 @@ class Cube:
         if r == "x":
             self.b, self.d, self.f, self.u = self.u, self.b, self.d, self.f
 
-            self.l = self.rotateMatrix(self.l, "ccw")
-            self.r = self.rotateMatrix(self.r, "cw")
-            self.b = self.rotateMatrix(self.b, "2")
-            self.d = self.rotateMatrix(self.d, "2")
+            self.l.rotate("ccw")
+            self.r.rotate("cw")
+            self.b.rotate("2")
+            self.d.rotate("2")
         elif r == "x'":
             self.u, self.b, self.d, self.f = self.b, self.d, self.f, self.u
 
-            self.l = self.rotateMatrix(self.l, "cw")
-            self.r = self.rotateMatrix(self.r, "ccw")
-            self.b = self.rotateMatrix(self.b, "2")
-            self.u = self.rotateMatrix(self.u, "2")
+            self.l.rotate("cw")
+            self.r.rotate("ccw")
+            self.b.rotate("2")
+            self.u.rotate("2")
 
         elif r == "x2" or r == "x2'":
             self.u, self.b, self.d, self.f = self.d, self.f, self.u, self.b
 
-            self.l = self.rotateMatrix(self.l, "2")
-            self.r = self.rotateMatrix(self.r, "2")
-            self.f = self.rotateMatrix(self.f, "2")
-            self.b = self.rotateMatrix(self.b, "2")
+            self.l.rotate("2")
+            self.r.rotate("2")
+            self.f.rotate("2")
+            self.b.rotate("2")
 
         elif r == "y":
             self.f, self.r, self.b, self.l = self.r, self.b, self.l, self.f
 
-            self.u = self.rotateMatrix(self.u, "cw")
-            self.d = self.rotateMatrix(self.d, "ccw")
+            self.u.rotate("cw")
+            self.d.rotate("ccw")
         elif r == "y'":
             self.r, self.b, self.l, self.f = self.f, self.r, self.b, self.l
 
-            self.u = self.rotateMatrix(self.u, "ccw")
-            self.d = self.rotateMatrix(self.d, "cw")
+            self.u.rotate("ccw")
+            self.d.rotate("cw")
         elif r == "y2" or r == "y2'":
             self.r, self.b, self.l, self.f = self.l, self.f, self.r, self.b
 
-            self.u = self.rotateMatrix(self.u, "2")
-            self.d = self.rotateMatrix(self.d, "2")
+            self.u.rotate("2")
+            self.d.rotate("2")
 
         elif r == "z":
             self.u, self.l, self.d, self.r = self.l, self.d, self.r, self.u
 
-            self.f = self.rotateMatrix(self.f, "cw")
-            self.b = self.rotateMatrix(self.b, "ccw")
-            self.u = self.rotateMatrix(self.u, "cw")
-            self.d = self.rotateMatrix(self.d, "cw")
-            self.r = self.rotateMatrix(self.r, "cw")
-            self.l = self.rotateMatrix(self.l, "cw")
+            self.f.rotate("cw")
+            self.b.rotate("ccw")
+            self.u.rotate("cw")
+            self.d.rotate("cw")
+            self.r.rotate("cw")
+            self.l.rotate("cw")
         elif r == "z'":
             self.l, self.d, self.r, self.u = self.u, self.l, self.d, self.r
 
-            self.f = self.rotateMatrix(self.f, "ccw")
-            self.b = self.rotateMatrix(self.b, "cw")
-            self.u = self.rotateMatrix(self.u, "ccw")
-            self.d = self.rotateMatrix(self.d, "ccw")
-            self.r = self.rotateMatrix(self.r, "ccw")
-            self.l = self.rotateMatrix(self.l, "ccw")
+            self.f.rotate("ccw")
+            self.b.rotate("cw")
+            self.u.rotate("ccw")
+            self.d.rotate("ccw")
+            self.r.rotate("ccw")
+            self.l.rotate("ccw")
         elif r == "z2" or r == "z2'":
             self.l, self.d, self.r, self.u = self.r, self.u, self.l, self.d
 
-            self.f = self.rotateMatrix(self.f, "2")
-            self.b = self.rotateMatrix(self.b, "2")
-            self.l = self.rotateMatrix(self.l, "2")
-            self.r = self.rotateMatrix(self.r, "2")
-            self.u = self.rotateMatrix(self.u, "2")
-            self.d = self.rotateMatrix(self.d, "2")
+            self.f.rotate("2")
+            self.b.rotate("2")
+            self.l.rotate("2")
+            self.r.rotate("2")
+            self.u.rotate("2")
+            self.d.rotate("2")
         else:
             print("dafuq you want from me")
 
@@ -134,7 +180,7 @@ class Cube:
     def move(self, mv: str) -> None:
         # Hardcoded R Rotationen
         if mv == "R":
-            self.r = self.rotateMatrix(self.r, "cw")
+            self.r.rotate("cw")
             self.u[0, 2], self.u[1, 2], self.u[2, 2], self.b[0, 0], self.b[1, 0], self.b[2, 0], self.d[0, 2], self.d[
                 1, 2], self.d[2, 2], self.f[0, 2], self.f[1, 2], self.f[2, 2] = \
                 self.f[0, 2], self.f[1, 2], self.f[2, 2], self.u[2, 2], self.u[1, 2], self.u[0, 2], self.b[2, 0], \
@@ -144,13 +190,13 @@ class Cube:
                 1, 0], self.b[0, 0], self.d[0, 2], self.d[1, 2], self.d[2, 2] = \
                 self.u[0, 2], self.u[1, 2], self.u[2, 2], self.b[0, 0], self.b[1, 0], self.b[2, 0], self.d[0, 2], \
                 self.d[1, 2], self.d[2, 2], self.f[0, 2], self.f[1, 2], self.f[2, 2]
-            self.r = self.rotateMatrix(self.r, "ccw")
+            self.r.rotate("ccw")
         elif mv == "R2" or mv == "R2'":
             self.f[0, 2], self.f[1, 2], self.f[2, 2], self.u[2, 2], self.u[1, 2], self.u[0, 2], self.b[2, 0], self.b[
                 1, 0], self.b[0, 0], self.d[0, 2], self.d[1, 2], self.d[2, 2] = \
                 self.b[2, 0], self.b[1, 0], self.b[0, 0], self.d[2, 2], self.d[1, 2], self.d[0, 2], self.f[0, 2], \
                 self.f[1, 2], self.f[2, 2], self.u[0, 2], self.u[1, 2], self.u[2, 2]
-            self.r = self.rotateMatrix(self.r, "2")
+            self.r.rotate("2")
 
         elif mv == "L":
             self.rotation("z2")
@@ -382,16 +428,22 @@ class Cube:
 
     # Gibt aus ob Cube gelöst ist oder nicht
     def isSolved(self) -> bool:
-        return\
-            np.all(self.u == self.u[0,0]) and \
-            np.all(self.d == self.d[0,0]) and \
-            np.all(self.f == self.f[0,0]) and \
-            np.all(self.b == self.b[0,0]) and \
-            np.all(self.l == self.l[0,0]) and \
-            np.all(self.r == self.r[0,0])
+        return all(
+            f.is_same_color for f in (self.u, self.d, self.f, self.b, self.l, self.r)
+        )
 
     def __str__(self):
-        string = str(self.u)+ "\n"
-        string += str(np.concatenate((self.f,self.r,self.b,self.l),axis=1))
-        string += "\n" + str(self.d)
+        string = f"{self.u.as_ndarray}\n"
+        string += str(
+            np.concatenate(
+                (
+                    self.f.as_ndarray,
+                    self.r.as_ndarray,
+                    self.b.as_ndarray,
+                    self.l.as_ndarray,
+                ),
+                axis=1,
+            )
+        )
+        string += f"\n{self.d.as_ndarray}"
         return string
