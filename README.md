@@ -1,5 +1,4 @@
-First download and unpack the ReconstructionTool.zip file.
-Then look for "ReconstructionTool.exe" (quite far down) and create a Shortcut.
+First download the ReconstructionTool.exe file and create a Shortcut.
 Place the shortcut wherever you want or need it.
 Clicking on the shortcut should open my program.
 
