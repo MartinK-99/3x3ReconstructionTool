@@ -1,6 +1,7 @@
 import dataclasses as d
 import typing as t
 from collections import deque
+from itertools import chain
 
 import numpy as np
 
@@ -66,6 +67,26 @@ class Face:
     @property
     def as_ndarray(self) -> np.ndarray:
         return np.array(self.as_list)
+
+
+def rowconcat(matrices: t.Sequence[t.List[t.List[Color]]]) -> t.List[t.List[Color]]:
+    return [list(chain(*rows)) for rows in zip(*matrices)]
+
+
+def render_row(row: t.Sequence[Color]) -> str:
+    return "[" + " ".join(f"{el!r}" for el in row) + "]"
+
+
+def render_matrix(matrix: t.Sequence[t.Sequence[Color]]) -> str:
+    row_renders = [render_row(row) for row in matrix]
+    first, *mid, last = row_renders
+    return "\n".join(
+        [
+            f"[{first}",
+            *[f" {r}" for r in mid],
+            f" {last}]",
+        ]
+    )
 
 
 class Cube:
@@ -433,17 +454,16 @@ class Cube:
         )
 
     def __str__(self):
-        string = f"{self.u.as_ndarray}\n"
-        string += str(
-            np.concatenate(
+        string = f"{render_matrix(self.u.as_list)}\n"
+        string += render_matrix(
+            rowconcat(
                 (
-                    self.f.as_ndarray,
-                    self.r.as_ndarray,
-                    self.b.as_ndarray,
-                    self.l.as_ndarray,
-                ),
-                axis=1,
-            )
+                    self.f.as_list,
+                    self.r.as_list,
+                    self.b.as_list,
+                    self.l.as_list,
+                )
+            ),
         )
-        string += f"\n{self.d.as_ndarray}"
+        string += f"\n{render_matrix(self.d.as_list)}"
         return string
