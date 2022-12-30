@@ -1,450 +1,316 @@
-import dataclasses as d
-import typing as t
-from collections import deque
-from itertools import chain
-
 """
-Copyright MartinK-99 2021
+Copyright MartinK-99 2022
 """
-
-Color: t.TypeAlias = str
-Face: t.TypeAlias = t.Sequence[t.Sequence[Color]]
-
-OUTER_COORDS = [
-    (0, 0),
-    (0, 1),
-    (0, 2),
-    (1, 2),
-    (2, 2),
-    (2, 1),
-    (2, 0),
-    (1, 0),
-]
-OUTER_COORDS_INV = {coord: i for i, coord in enumerate(OUTER_COORDS)}
-
-
-@d.dataclass
-class Face:
-    """3x3 face, implemented with an efficient rotation method"""
-
-    mid: Color
-    outer: deque
-
-    @classmethod
-    def same_color(cls, c: Color):
-        return cls(mid=c, outer=deque((c, c, c, c, c, c, c, c)))
-
-    def __getitem__(self, item: t.Tuple[int, int]) -> Color:
-        if item == (1, 1):
-            return self.mid
-        return self.outer[OUTER_COORDS_INV[item]]
-
-    def __setitem__(self, key: t.Tuple[int, int], value: Color) -> None:
-        if key == (1, 1):
-            self.mid = value
-        else:
-            self.outer[OUTER_COORDS_INV[key]] = value
-
-    @property
-    def is_same_color(self) -> bool:
-        return {self.mid} == set(self.outer)
-
-    def rotate(self, how: str = "cw") -> None:
-        if how == "cw":
-            self.outer.rotate(-2)
-            return
-        if how == "2":
-            self.outer.rotate(4)
-        if how == "ccw":
-            self.outer.rotate(2)
-
-    @property
-    def as_list(self) -> t.List[t.List[Color]]:
-        return [[self[row, col] for row in range(3)] for col in range(3)]
-
-
-def rowconcat(matrices: t.Sequence[t.List[t.List[Color]]]) -> t.List[t.List[Color]]:
-    return [list(chain(*rows)) for rows in zip(*matrices)]
-
-
-def render_row(row: t.Sequence[Color]) -> str:
-    return "[" + " ".join(f"{el!r}" for el in row) + "]"
-
-
-def render_matrix(matrix: t.Sequence[t.Sequence[Color]]) -> str:
-    row_renders = [render_row(row) for row in matrix]
-    first, *mid, last = row_renders
-    return "\n".join(
-        [
-            f"[{first}",
-            *[f" {r}" for r in mid],
-            f" {last}]",
-        ]
-    )
-
 
 class Cube:
-    r: Face
-    u: Face
-    f: Face
-    l: Face
-    d: Face
-    b: Face
-    # no measurable benefit
-    # __slots__ = ("r", "u", "f", "l", "d", "b")
+
+    CUBE_ROTATIONS = ["x","x'","x2","y","y'","y2","z","z'","z2"]
+
+    CUBE_MOVES = ["U","U'","U2","U2'","Uw","Uw'","u","u'","Uw2","Uw2'","u2","u2'",
+                  "D","D'","D2","D2'","Dw","Dw'","d","d'","Dw2","Dw2'","d2","d2'",
+                  "F","F'","F2","F2'","Fw","Fw'","f","f'","Fw2","Fw2'","f2","f2'",
+                  "B","B'","B2","B2'","Bw","Bw'","b","b'","Bw2","Bw2'","b2","b2'",
+                  "R","R'","R2","R2'","Rw","Rw'","r","r'","Rw2","Rw2'","r2","r2'",
+                  "L","L'","L2","L2'","Lw","Lw'","l","l'","Lw2","Lw2'","l2","l2'",
+                  "M","M'","M2","M2'",
+                  "E","E'","E2","E2'"
+                  "S","S'","S2","S2'"]
 
 
     def __init__(self):
-        self.u = Face.same_color("w")
-        self.d = Face.same_color("y")
-        self.r = Face.same_color("r")
-        self.l = Face.same_color("o")
-        self.f = Face.same_color("g")
-        self.b = Face.same_color("b")
+        """
+        Every face of the Rubik's Cube is a 3x3 array
+        with string elements according to its color.
+        """
+        self.u = [["w" for i in range(3)] for i in range(3)]
+        self.d = [["y" for i in range(3)] for i in range(3)]
+        self.r = [["r" for i in range(3)] for i in range(3)]
+        self.l = [["o" for i in range(3)] for i in range(3)]
+        self.f = [["g" for i in range(3)] for i in range(3)]
+        self.b = [["b" for i in range(3)] for i in range(3)]
 
-    # Matrix Rotation
-    def rotateMatrix(self, A: Face, r: str):
-        A.rotate(r)
-        return A
 
-    # Cube Rotation
-    def rotation(self, r: str) -> None:
-        if r == "x":
+    def rotateFace(self, face : list[list[str,3],3], rotation : str) -> list[list[str,3],3]:
+        """
+        The face of the Rubik's Cube saved as a 3x3 array
+        is rotated by +-90° or 180° depending on the input.
+        The rotated face will be returned.
+
+        Yeah... Try figuring out how that works
+        """
+        # Clockwise rotation of matrix
+        if rotation in ["cw", "1", 1]:
+            return [list(a) for a in zip(*face[::-1])]
+        # Counter-Clockwise rotation of matrix
+        elif rotation in ["ccw", "-1", -1, "3", 3]:
+            return [list(a) for a in zip(*face)][::-1]
+        # 180° rotation of matrix
+        elif rotation in ["2", 2]:
+            return [a[::-1] for a in face][::-1]
+        else:
+            raise Exception(f"Either the matrix input or \"{rotation}\" is not correct!\nTry \"cw\" for clockwise, \"ccw\" for counterclockwise and \"2\" for 180 degree rotation.")
+
+    
+    def rotation(self, rot : str):
+        """
+        Here the cube is rotated. The faces will
+        be swapped and rotated accordingly.
+        """
+        if rot == "x":
             self.b, self.d, self.f, self.u = self.u, self.b, self.d, self.f
 
-            self.l.rotate("ccw")
-            self.r.rotate("cw")
-            self.b.rotate("2")
-            self.d.rotate("2")
-        elif r == "x'":
+            self.l = self.rotateFace(self.l, "ccw")
+            self.r = self.rotateFace(self.r, "cw")
+            self.b = self.rotateFace(self.b, "2")
+            self.d = self.rotateFace(self.d, "2")
+        
+        elif rot == "x'":
             self.u, self.b, self.d, self.f = self.b, self.d, self.f, self.u
 
-            self.l.rotate("cw")
-            self.r.rotate("ccw")
-            self.b.rotate("2")
-            self.u.rotate("2")
+            self.l = self.rotateFace(self.l, "cw")
+            self.r = self.rotateFace(self.r, "ccw")
+            self.b = self.rotateFace(self.b, "2")
+            self.u = self.rotateFace(self.u, "2")
 
-        elif r == "x2" or r == "x2'":
+        elif rot == "x2" or rot == "x2'":
             self.u, self.b, self.d, self.f = self.d, self.f, self.u, self.b
 
-            self.l.rotate("2")
-            self.r.rotate("2")
-            self.f.rotate("2")
-            self.b.rotate("2")
+            self.l = self.rotateFace(self.l, "2")
+            self.r = self.rotateFace(self.r, "2")
+            self.f = self.rotateFace(self.f, "2")
+            self.b = self.rotateFace(self.b, "2")
 
-        elif r == "y":
+        elif rot == "y":
             self.f, self.r, self.b, self.l = self.r, self.b, self.l, self.f
 
-            self.u.rotate("cw")
-            self.d.rotate("ccw")
-        elif r == "y'":
+            self.u = self.rotateFace(self.u, "cw")
+            self.d = self.rotateFace(self.d, "ccw")
+       
+        elif rot == "y'":
             self.r, self.b, self.l, self.f = self.f, self.r, self.b, self.l
 
-            self.u.rotate("ccw")
-            self.d.rotate("cw")
-        elif r == "y2" or r == "y2'":
+            self.u = self.rotateFace(self.u, "ccw")
+            self.d = self.rotateFace(self.d, "cw")
+       
+        elif rot == "y2" or rot == "y2'":
             self.r, self.b, self.l, self.f = self.l, self.f, self.r, self.b
 
-            self.u.rotate("2")
-            self.d.rotate("2")
+            self.u = self.rotateFace(self.u, "2")
+            self.d = self.rotateFace(self.d, "2")
 
-        elif r == "z":
+        elif rot == "z":
             self.u, self.l, self.d, self.r = self.l, self.d, self.r, self.u
 
-            self.f.rotate("cw")
-            self.b.rotate("ccw")
-            self.u.rotate("cw")
-            self.d.rotate("cw")
-            self.r.rotate("cw")
-            self.l.rotate("cw")
-        elif r == "z'":
+            self.f = self.rotateFace(self.f, "cw")
+            self.b = self.rotateFace(self.b, "ccw")
+            self.u = self.rotateFace(self.u, "cw")
+            self.d = self.rotateFace(self.d, "cw")
+            self.r = self.rotateFace(self.r, "cw")
+            self.l = self.rotateFace(self.l, "cw")
+       
+        elif rot == "z'":
             self.l, self.d, self.r, self.u = self.u, self.l, self.d, self.r
 
-            self.f.rotate("ccw")
-            self.b.rotate("cw")
-            self.u.rotate("ccw")
-            self.d.rotate("ccw")
-            self.r.rotate("ccw")
-            self.l.rotate("ccw")
-        elif r == "z2" or r == "z2'":
+            self.f = self.rotateFace(self.f, "ccw")
+            self.b = self.rotateFace(self.b, "cw")
+            self.u = self.rotateFace(self.u, "ccw")
+            self.d = self.rotateFace(self.d, "ccw")
+            self.r = self.rotateFace(self.r, "ccw")
+            self.l = self.rotateFace(self.l, "ccw")
+      
+        elif rot == "z2" or rot == "z2'":
             self.l, self.d, self.r, self.u = self.r, self.u, self.l, self.d
 
-            self.f.rotate("2")
-            self.b.rotate("2")
-            self.l.rotate("2")
-            self.r.rotate("2")
-            self.u.rotate("2")
-            self.d.rotate("2")
+            self.f = self.rotateFace(self.f, "2")
+            self.b = self.rotateFace(self.b, "2")
+            self.l = self.rotateFace(self.l, "2")
+            self.r = self.rotateFace(self.r, "2")
+            self.u = self.rotateFace(self.u, "2")
+            self.d = self.rotateFace(self.d, "2")
         else:
-            print("dafuq you want from me")
+            raise Exception(f"\"{rot}\" is not a valid cube rotation!")
 
-    # Moves ausschließlich mit Rotationen und R Moves definiert
-    def move(self, mv: str) -> None:
-        # Hardcoded R Rotationen
-        if mv == "R":
-            self.r.rotate("cw")
-            self.u[0, 2], self.u[1, 2], self.u[2, 2], self.b[0, 0], self.b[1, 0], self.b[2, 0], self.d[0, 2], self.d[
-                1, 2], self.d[2, 2], self.f[0, 2], self.f[1, 2], self.f[2, 2] = \
-                self.f[0, 2], self.f[1, 2], self.f[2, 2], self.u[2, 2], self.u[1, 2], self.u[0, 2], self.b[2, 0], \
-                self.b[1, 0], self.b[0, 0], self.d[0, 2], self.d[1, 2], self.d[2, 2]
-        elif mv == "R'":
-            self.f[0, 2], self.f[1, 2], self.f[2, 2], self.u[2, 2], self.u[1, 2], self.u[0, 2], self.b[2, 0], self.b[
-                1, 0], self.b[0, 0], self.d[0, 2], self.d[1, 2], self.d[2, 2] = \
-                self.u[0, 2], self.u[1, 2], self.u[2, 2], self.b[0, 0], self.b[1, 0], self.b[2, 0], self.d[0, 2], \
-                self.d[1, 2], self.d[2, 2], self.f[0, 2], self.f[1, 2], self.f[2, 2]
-            self.r.rotate("ccw")
-        elif mv == "R2" or mv == "R2'":
-            self.f[0, 2], self.f[1, 2], self.f[2, 2], self.u[2, 2], self.u[1, 2], self.u[0, 2], self.b[2, 0], self.b[
-                1, 0], self.b[0, 0], self.d[0, 2], self.d[1, 2], self.d[2, 2] = \
-                self.b[2, 0], self.b[1, 0], self.b[0, 0], self.d[2, 2], self.d[1, 2], self.d[0, 2], self.f[0, 2], \
-                self.f[1, 2], self.f[2, 2], self.u[0, 2], self.u[1, 2], self.u[2, 2]
-            self.r.rotate("2")
 
-        elif mv == "L":
-            self.rotation("z2")
-            self.move("R")
-            self.rotation("z2")
-        elif mv == "L'":
-            self.rotation("z2")
-            self.move("R'")
-            self.rotation("z2")
-        elif mv == "L2" or mv == "L2'":
-            self.rotation("z2")
-            self.move("R2")
-            self.rotation("z2")
+    def U(self):
+        """
+        Does U move
+        """
+        self.u = self.rotateFace(self.u, 1) # Clockwise rotation of the upper face
+        self.f[0], self.r[0], self.b[0], self.l[0] = self.r[0], self.b[0], self.l[0], self.f[0]
+    def Uprime(self):
+        """
+        Does U' move
+        """
+        self.u = self.rotateFace(self.u, -1) # Counterclockwise rotation of the upper face
+        self.f[0], self.r[0], self.b[0], self.l[0] = self.l[0], self.f[0], self.r[0], self.b[0]
+    def U2(self):
+        """
+        Does U2 move
+        """
+        self.u = self.rotateFace(self.u, 2) # 180° rotation of the upper face
+        self.f[0], self.r[0], self.b[0], self.l[0] = self.b[0], self.l[0], self.f[0], self.r[0]
 
-        elif mv == "U":
-            self.rotation("z")
-            self.move("R")
-            self.rotation("z'")
-        elif mv == "U'":
-            self.rotation("z")
-            self.move("R'")
-            self.rotation("z'")
-        elif mv == "U2" or mv == "U2'":
-            self.rotation("z")
-            self.move("R2")
-            self.rotation("z'")
+    # Moves only defined by cube rotations and U moves
+    def move(self, mv : str):
+        """
+        This function applys a move to the cube using
+        cube rotations and only [U, U', U2] moves.
+        """
+        match mv:
+            case "U":
+                self.U()
+            case "U'":
+                self.Uprime()
+            case "U2" | "U2'":
+                self.U2()
+            case "Uw" | "u":
+                self.rotation("z2"); self.U(); self.rotation("z2"); self.rotation("y")
+            case "Uw'" | "u'":
+                self.rotation("z2"); self.Uprime(); self.rotation("z2"); self.rotation("y'")
+            case "Uw2" | "u2" | "Uw2'" | "u2'":
+                self.rotation("z2"); self.U2(); self.rotation("z2"); self.rotation("y2")
+            
+            case "D":
+                self.rotation("x2"); self.U(); self.rotation("x2")
+            case "D'":
+                self.rotation("x2"); self.Uprime(); self.rotation("x2")
+            case "D2" | "D2'":
+                self.rotation("x2"); self.U2(); self.rotation("x2")
+            case "Dw" | "d":
+                self.U(); self.rotation("y'")
+            case "Dw'" | "d'":
+                self.Uprime(); self.rotation("y")
+            case "Dw2" | "d2" | "Dw2'" | "d2'":
+                self.U2(); self.rotation("y2")
 
-        elif mv == "D":
-            self.rotation("z'")
-            self.move("R")
-            self.rotation("z")
-        elif mv == "D'":
-            self.rotation("z'")
-            self.move("R'")
-            self.rotation("z")
-        elif mv == "D2" or mv == "D2'":
-            self.rotation("z'")
-            self.move("R2")
-            self.rotation("z")
+            case "R":
+                self.rotation("z'"); self.U(); self.rotation("z")
+            case "R'":
+                self.rotation("z'"); self.Uprime(); self.rotation("z")
+            case "R2" | "R2'":
+                self.rotation("z'"); self.U2(); self.rotation("z")
+            case "Rw" | "r":
+                self.rotation("z"); self.U(); self.rotation("z'"); self.rotation("x")
+            case "Rw'" | "r'":
+                self.rotation("z"); self.Uprime(); self.rotation("z'"); self.rotation("x'")
+            case "Rw2" | "r2" | "Rw2'" | "r2'":
+                self.rotation("z"); self.U2(); self.rotation("z'"); self.rotation("x2")
 
-        elif mv == "F":
-            self.rotation("y'")
-            self.move("R")
-            self.rotation("y")
-        elif mv == "F'":
-            self.rotation("y'")
-            self.move("R'")
-            self.rotation("y")
-        elif mv == "F2" or mv == "F2'":
-            self.rotation("y'")
-            self.move("R2")
-            self.rotation("y")
+            case "L":
+                self.rotation("z"); self.U(); self.rotation("z'")
+            case "L'":
+                self.rotation("z"); self.Uprime(); self.rotation("z'")
+            case "L2" | "L2'":
+                self.rotation("z"); self.U2(); self.rotation("z'")
+            case "Lw" | "l":
+                self.rotation("z'"); self.U(); self.rotation("z"); self.rotation("x'")
+            case "Lw'" | "l'":
+                self.rotation("z'"); self.Uprime(); self.rotation("z"); self.rotation("x")
+            case "Lw2" | "l2" | "Lw2'" | "l2'":
+                self.rotation("z'"); self.U2(); self.rotation("z"); self.rotation("x2")
+            
+            case "F":
+                self.rotation("x"); self.U(); self.rotation("x'")
+            case "F'":
+                self.rotation("x"); self.Uprime(); self.rotation("x'")
+            case "F2" | "F2'":
+                self.rotation("x"); self.U2(); self.rotation("x'")
+            case "Fw" | "f":
+                self.rotation("x'"); self.U(); self.rotation("x"); self.rotation("z")
+            case "Fw'" | "f'":
+                self.rotation("x'"); self.Uprime(); self.rotation("x"); self.rotation("z'")
+            case "Fw2" | "f2" | "Fw2'" | "f2'":
+                self.rotation("x'"); self.U2(); self.rotation("x"); self.rotation("z2")
 
-        elif mv == "B":
-            self.rotation("y")
-            self.move("R")
-            self.rotation("y'")
-        elif mv == "B'":
-            self.rotation("y")
-            self.move("R'")
-            self.rotation("y'")
-        elif mv == "B2" or mv == "B2'":
-            self.rotation("y")
-            self.move("R2")
-            self.rotation("y'")
+            case "B":
+                self.rotation("x'"); self.U(); self.rotation("x")
+            case "B'":
+                self.rotation("x'"); self.Uprime(); self.rotation("x")
+            case "B2" | "B2'":
+                self.rotation("x'"); self.U2(); self.rotation("x")
+            case "Bw" | "b":
+                self.rotation("x"); self.U(); self.rotation("x'"); self.rotation("z'")
+            case "Bw'" | "b'":
+                self.rotation("x"); self.Uprime(); self.rotation("x'"); self.rotation("z")
+            case "Bw2" | "b2" | "Bw2'" | "b2'":
+                self.rotation("x"); self.U2(); self.rotation("x"); self.rotation("z2")
 
-        elif mv == "M":
-            self.move("R")
-            self.rotation("z2")
-            self.move("R'")
-            self.rotation("z2")
-            self.rotation("x'")
-        elif mv == "M'":
-            self.move("R'")
-            self.rotation("z2")
-            self.move("R")
-            self.rotation("z2")
-            self.rotation("x")
-        elif mv == "M2" or mv == "M2'":
-            self.move("R2")
-            self.rotation("z2")
-            self.move("R2")
-            self.move("z2")
+            case "M":
+                self.rotation("z'"); self.U(); self.rotation("z2"); self.Uprime(); self.rotation("z'"); self.rotation("x'")
+            case "M'":
+                self.rotation("z'"); self.Uprime(); self.rotation("z2"); self.U(); self.rotation("z'"); self.rotation("x")
+            case "M2" | "M2'":
+                self.rotation("z'"); self.U2(); self.rotation("z2"); self.U2(); self.rotation("z'"); self.rotation("x2")
+            
+            case "S":
+                self.rotation("x'"); self.U(); self.rotation("x2"); self.Uprime(); self.rotation("x'"); self.rotation("z")
+            case "S'":
+                self.rotation("x'"); self.Uprime(); self.rotation("x2"); self.U(); self.rotation("x'"); self.rotation("z'")
+            case "S2" | "S2'":
+                self.rotation("x'"); self.U2(); self.rotation("x2"); self.U2(); self.rotation("x'"); self.rotation("z2")
 
-        elif mv == "E":
-            self.rotation("z")
-            self.move("R")
-            self.rotation("z2")
-            self.move("R'")
-            self.rotation("z")
-            self.rotation("y'")
-        elif mv == "E'":
-            self.rotation("z")
-            self.move("R'")
-            self.rotation("z2")
-            self.move("R")
-            self.rotation("z")
-            self.rotation("y")
-        elif mv == "E2" or mv == "E2'":
-            self.rotation("z")
-            self.move("R2")
-            self.rotation("z2")
-            self.move("R2")
-            self.rotation("z")
-            self.rotation("y2")
-
-        elif mv == "S":
-            self.rotation("y'")
-            self.move("R'")
-            self.rotation("y2")
-            self.move("R")
-            self.rotation("z")
-            self.rotation("x'")
-        elif mv == "S'":
-            self.rotation("y'")
-            self.move("R")
-            self.rotation("y2")
-            self.move("R'")
-            self.rotation("z'")
-            self.rotation("x")
-        elif mv == "S2" or mv == "S2'":
-            self.rotation("y'")
-            self.move("R2")
-            self.rotation("y2")
-            self.move("R2")
-            self.rotation("x2")
-            self.rotation("y'")
-
-        elif mv == "Rw" or mv == "r":
-            self.rotation("z2")
-            self.move("R")
-            self.rotation("z2")
-            self.rotation("x")
-        elif mv == "Rw'" or mv == "r'":
-            self.rotation("z2")
-            self.move("R'")
-            self.rotation("z2")
-            self.rotation("x'")
-        elif mv == "Rw2" or mv == "r2" or mv == "Rw2'" or mv == "r2'":
-            self.rotation("z2")
-            self.move("R2")
-            self.rotation("z2") # the mistake :O
-            self.rotation("x2")
-
-        elif mv == "Lw" or mv == "l":
-            self.move("R")
-            self.rotation("x'")
-        elif mv == "Lw'" or mv == "l'":
-            self.move("R'")
-            self.rotation("x")
-        elif mv == "Lw2" or mv == "l2" or mv == "Lw2'" or mv == "l2'":
-            self.move("R2")
-            self.rotation("x2")
-
-        elif mv == "Uw" or mv == "u":
-            self.rotation("z'")
-            self.move("R")
-            self.rotation("x'")
-            self.rotation("z")
-        elif mv == "Uw'" or mv == "u'":
-            self.rotation("z'")
-            self.move("R'")
-            self.rotation("x")
-            self.rotation("z")
-        elif mv == "Uw2" or mv == "u2" or mv == "Uw2'" or mv == "u2'":
-            self.rotation("z'")
-            self.move("R2")
-            self.rotation("z")
-            self.rotation("y2")
-
-        elif mv == "Dw" or mv == "d":
-            self.rotation("z")
-            self.move("R")
-            self.rotation("x'")
-            self.rotation("z'")
-        elif mv == "Dw'" or mv == "d'":
-            self.rotation("z")
-            self.move("R'")
-            self.rotation("x")
-            self.rotation("z'")
-        elif mv == "Dw2" or mv == "d2" or mv == "Dw2'" or mv == "d2'":
-            self.rotation("z")
-            self.move("R2")
-            self.rotation("x2")
-            self.rotation("z'")
-
-        elif mv == "Fw" or mv == "f":
-            self.rotation("y")
-            self.move("R")
-            self.rotation("x'")
-            self.rotation("y'")
-        elif mv == "Fw'" or mv == "f'":
-            self.rotation("y")
-            self.move("R'")
-            self.rotation("x")
-            self.rotation("y'")
-        elif mv == "Fw2" or mv == "f2" or mv == "Fw2'" or mv == "f2'":
-            self.rotation("y")
-            self.move("R2")
-            self.rotation("x2")
-            self.rotation("y'")
-
-        elif mv == "Bw" or mv == "b":
-            self.rotation("y'")
-            self.move("R")
-            self.rotation("x'")
-            self.rotation("y")
-        elif mv == "Bw'" or mv == "b'":
-            self.rotation("y'")
-            self.move("R'")
-            self.rotation("x")
-            self.rotation("y")
-        elif mv == "Bw2" or mv == "b2" or mv == "Bw2'" or mv == "b2'":
-            self.rotation("y'")
-            self.move("R2")
-            self.rotation("x2")
-            self.rotation("y")
-        else:
-            print("dafuq you want from me")
-
-    # Algorithmus als String
-    def algorithm(self, alg: str) -> None:
+            case "E":
+                self.U(); self.rotation("z2"); self.Uprime(); self.rotation("z2"); self.rotation("y'")
+            case "E'":
+                self.Uprime(); self.rotation("z2"); self.U(); self.rotation("z2"); self.rotation("y")
+            case "E2" | "E2'":
+                self.U2(); self.rotation("z2"); self.U2(); self.rotation("z2"); self.rotation("y2")
+            
+            case other:
+                raise Exception(f"\"{mv}\" is not a valid move!")
+            
+    def algorithm(self, alg : str):
+        """
+        A sequence of moves is applied to the Rubik's Cube.
+        """
         algList = alg.split()
-        for i in algList:
-            if i in ["x","x'","x2","y","y'","y2","z","z'","z2"]:
-                self.rotation(i)
+        for el in algList:
+            if el in self.CUBE_ROTATIONS:
+                self.rotation(el)
+            elif el in self.CUBE_MOVES:
+                self.move(el)
             else:
-                self.move(i)
+                raise Exception(f"\"{el}\" is neither a valid cube rotation or move!")
 
-    # Gibt aus ob Cube gelöst ist oder nicht
     def isSolved(self) -> bool:
-        return all(
-            f.is_same_color for f in (self.u, self.d, self.f, self.b, self.l, self.r)
-        )
+        """
+        This functions returns True if the cube
+        is solved otherwise False.
+        """
+        # List of lists to one single list
+        list_u = [color for row in self.u for color in row]
+        list_d = [color for row in self.d for color in row]
+        list_f = [color for row in self.f for color in row]
+        list_b = [color for row in self.b for color in row]
+        list_l = [color for row in self.l for color in row]
+        list_r = [color for row in self.r for color in row]
 
-    def __str__(self):
-        string = f"{render_matrix(self.u.as_list)}\n"
-        string += render_matrix(
-            rowconcat(
-                (
-                    self.f.as_list,
-                    self.r.as_list,
-                    self.b.as_list,
-                    self.l.as_list,
-                )
-            ),
-        )
-        string += f"\n{render_matrix(self.d.as_list)}"
+        # Check if set of elements per face is 1
+        return  len(set(list_u)) == 1 and \
+                len(set(list_d)) == 1 and \
+                len(set(list_f)) == 1 and \
+                len(set(list_b)) == 1 and \
+                len(set(list_l)) == 1 and \
+                len(set(list_r)) == 1
+
+    def __str__(self) -> str:
+        """
+        Creates a string representation of the Rubik's Cube.
+        """
+
+        # Creates list of lists for every row
+        rows = self.u # upper face
+        for i in range(3): rows.append(self.f[i] + self.r[i] + self.b[i] + self.l[i]) # side faces
+        for i in range(3): rows.append(self.d[i]) # bottom face
+        
+        # Generates string
+        string = ""
+        for r in rows:
+            string += " ".join(r) + "\n"
         return string
+
+
+c = Cube()
+c.algorithm("R U R' U' R' F R2 U' R' U' R U R' F'")
+
+print(c)

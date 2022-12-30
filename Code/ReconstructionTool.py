@@ -49,7 +49,7 @@ def getData(inputthatisnotused=None):
         if i in rotations:
             # Rotation auf Würfel anwenden
             if verifyRecon3.get(): cube.rotation(i)
-        elif i in singleMoves or doubleMoves or singleSliceMove or doubleSliceMove:
+        elif i in singleMoves or i in doubleMoves or i in singleSliceMove or i in doubleSliceMove:
             # Move auf Würfel anwenden
             if verifyRecon3.get(): cube.move(i)
 
